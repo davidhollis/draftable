@@ -15,3 +15,13 @@ libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "5.0.0
 
 // Adds additional packages into conf/routes
 // play.sbt.routes.RoutesKeys.routesImport += "computer.hollis.binders._"
+
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-Xlint:unused",
+  "-Wdead-code",
+)
+scalacOptions in (Compile, console) ~= { _.filterNot(Set("-Xlint:unused")) }
+scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value
+semanticdbEnabled := true
+semanticdbVersion := scalafixSemanticdb.revision
