@@ -2,6 +2,9 @@ package models
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import models.Zone.Visibility.Sets
+import models.Zone.Visibility.TopCard
+import models.Zone.Visibility.Cards
 
 case class CardSet(
   id: Identifier[CardSet],
@@ -11,29 +14,43 @@ case class CardSet(
 ) extends Identifiable[CardSet] {
   def isEmpty: Boolean = cards.isEmpty
 
-  def find(instanceId: Identifiable[CardInstance]): Option[CardInstance] =
-    cards.find(_.id == instanceId.id)
+  def card(card: Identifiable[CardInstance]): Option[CardInstance] =
+    cards.find(_.id == card.id)
 
-  def findByAttribute(attribute: String): Seq[CardInstance] =
+  def cardsByAttribute(attribute: String): Seq[CardInstance] =
     cards.filter(_.hasAttributes(Set(attribute)))
 
-  def removeCard(instanceId: Identifiable[CardInstance]): CardSet =
-    copy(cards = cards.filterNot(_.id == instanceId.id))
+  def topCard: Option[CardInstance] = cards.headOption
 
-  def addAttributes(instanceId: Identifiable[CardInstance], newAttrs: Set[String]): CardSet =
-    copy(cards = cards.map { instance =>
-      if (instance.id == instanceId.id) instance.addAttributes(newAttrs) else instance
+  def popCard: (Option[CardInstance], CardSet) =
+    cards match {
+      case popped :: rest => (Some(popped), copy(cards = rest))
+      case Nil            => (None, this)
+    }
+
+  def pushCard(card: CardInstance): CardSet = copy(cards = card +: cards)
+
+  def removeCard(card: Identifiable[CardInstance]): CardSet =
+    copy(cards = cards.filterNot(_.id == card.id))
+
+  def modifyCard(
+    selectedCard: Identifiable[CardInstance]
+  )(
+    op: CardInstance => CardInstance
+  ): CardSet =
+    copy(cards = cards.map { card =>
+      if (card.id == selectedCard.id)
+        op(card)
+      else
+        card
     })
 
-  def removeAttributes(instanceId: Identifiable[CardInstance], attrs: Set[String]): CardSet =
-    copy(cards = cards.map { instance =>
-      if (instance.id == instanceId.id) instance.removeAttributes(attrs) else instance
-    })
-
-  def clearAttributes(instanceId: Identifiable[CardInstance]): CardSet =
-    copy(cards = cards.map { instance =>
-      if (instance.id == instanceId.id) instance.clearAttributes() else instance
-    })
+  def filteredView(visibility: Zone.Visibility): CardSet =
+    visibility match {
+      case Sets    => copy(cards = Seq.empty)
+      case TopCard => copy(cards = topCard.toSeq)
+      case Cards   => this
+    }
 
 }
 
