@@ -7,9 +7,10 @@ case class CardInstance(
   id: Identifier[CardInstance],
   card: Card,
   attributes: Set[String],
-) {
+) extends Identifiable[CardInstance] {
   def addAttributes(newAttrs: Set[String]): CardInstance = copy(attributes = attributes | newAttrs)
   def removeAttributes(attrs: Set[String]): CardInstance = copy(attributes = attributes diff attrs)
+  def clearAttributes(): CardInstance = copy(attributes = Set.empty)
   def hasAttributes(checkAttrs: Set[String]): Boolean = checkAttrs subsetOf attributes
 }
 

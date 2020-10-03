@@ -17,12 +17,18 @@ object IdPrefix {
   def apply[T](prefix: String): IdPrefix[T] = new IdPrefix[T] { val prefixString: String = prefix }
 }
 
+trait Identifiable[T] {
+  val id: Identifier[T]
+}
+
 class Identifier[T] private[Identifier] (
   private val uuid: UUID
 )(
   implicit
   private val prefix: IdPrefix[T]
-) {
+) extends Identifiable[T] {
+  lazy val id: Identifier[T] = this
+
   override lazy val toString: String = s"drn:${prefix}:${uuid}"
 
   override def equals(obj: Any): Boolean =
