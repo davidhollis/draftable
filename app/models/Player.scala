@@ -18,4 +18,11 @@ object Player {
       (__ \ implicitly[JsonConfiguration].naming("name")).formatNullable[String]
   )(Player.apply, unlift(Player.unapply))
 
+  case object System extends Identifiable[Player] {
+
+    val id: Identifier[Player] =
+      Identifier.applyOpt[Player]("00000000-0000-0000-0000-000000000000").get
+
+  }
+
 }

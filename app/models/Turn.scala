@@ -9,7 +9,9 @@ case class Turn(
   name: String,
   expires: Option[ZonedDateTime],
   metadata: Map[String, String],
-) extends Identifiable[Turn]
+) extends Identifiable[Turn] {
+  def withoutExpiration: Turn = copy(expires = None)
+}
 
 object Turn {
   implicit val idPrefix: IdPrefix[Turn] = IdPrefix[Turn]("turn")

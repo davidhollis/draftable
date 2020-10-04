@@ -14,6 +14,8 @@ case class Zone(
 ) extends Identifiable[Zone] {
   def isOwnedBy(player: Identifiable[Player]): Boolean = owner.map(_ == player.id).getOrElse(false)
 
+  def isEmpty: Boolean = sets.isEmpty
+
   def cardSet(cardSet: Identifiable[CardSet]): Option[CardSet] = sets.find(_.id == cardSet.id)
 
   def cardSet(setName: String): Option[CardSet] = sets.find(_.name == setName)
