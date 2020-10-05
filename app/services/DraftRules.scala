@@ -3,11 +3,21 @@ package services
 import models.{ DraftState, Identifier, Player }
 
 trait DraftRules {
-  type Event
-
   val maximumPlayerCount: Int
 
   def createDraft: DraftState
 
-  def handleEvent(draft: DraftState, event: Event): (DraftState, Set[Identifier[Player]])
+  def handleEvent(draft: DraftState, event: Event): (DraftState, Seq[Notification])
+}
+
+object DraftRules {
+
+  implicit class NotifyPlayer(val player: Identifier[Player]) extends AnyVal {
+    def ~>(message: Message): Notification = Notification(player, message)
+
+    def ~>(draft: DraftState): Notification =
+      Notification(player, UpdateDraftState(draft.filteredViewFor(player)))
+
+  }
+
 }
