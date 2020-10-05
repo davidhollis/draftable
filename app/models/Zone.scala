@@ -8,9 +8,9 @@ case class Zone(
   name: String,
   owner: Option[Identifier[Player]],
   sets: Seq[CardSet],
+  canSelect: Zone.Target,
+  canDrop: Zone.Target,
   visible: Map[Identifier[Player], Zone.Visibility] = Map.empty,
-  focused: Boolean = false,
-  canPickFrom: Boolean = false,
 ) extends Identifiable[Zone] {
   def isOwnedBy(player: Identifiable[Player]): Boolean = owner.map(_ == player.id).getOrElse(false)
 
@@ -82,15 +82,35 @@ object Zone {
     })
   }
 
+  sealed abstract class Target(override val toString: String)
+
+  object Target {
+    object NoTarget extends Target("nothing")
+    object Sets extends Target("sets only")
+    object Cards extends Target("cards only")
+
+    val all: Set[Target] = Set(NoTarget, Sets, Cards)
+
+    lazy val byName: Map[String, Target] = all.map(tgt => (tgt.toString -> tgt)).toMap
+
+    implicit val reads: Reads[Target] = Reads {
+      case JsString(targetString) => JsSuccess(Target.byName.getOrElse(targetString, NoTarget))
+      case _                      => JsSuccess(NoTarget)
+    }
+
+    implicit val writes: Writes[Target] = Writes { tgt => JsString(tgt.toString) }
+
+  }
+
   implicit val format: Format[Zone] = (
     (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Zone]] and
       (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
       (__ \ implicitly[JsonConfiguration].naming("owner")).formatNullable[Identifier[Player]] and
       (__ \ implicitly[JsonConfiguration].naming("sets")).format[Seq[CardSet]] and
+      (__ \ implicitly[JsonConfiguration].naming("canSelect")).format[Target] and
+      (__ \ implicitly[JsonConfiguration].naming("canDrop")).format[Target] and
       (__ \ implicitly[JsonConfiguration].naming("visible"))
-        .format[Map[Identifier[Player], Visibility]] and
-      (__ \ implicitly[JsonConfiguration].naming("focused")).format[Boolean] and
-      (__ \ implicitly[JsonConfiguration].naming("canPickFrom")).format[Boolean]
+        .format[Map[Identifier[Player], Visibility]]
   )(Zone.apply, unlift(Zone.unapply))
 
 }
