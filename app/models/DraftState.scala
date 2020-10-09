@@ -190,11 +190,11 @@ object DraftState {
   }
 
   implicit val format: Format[DraftState] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[DraftState]] and
-      (__ \ implicitly[JsonConfiguration].naming("players")).format[Seq[Player]] and
-      (__ \ implicitly[JsonConfiguration].naming("zones")).format[Set[Zone]] and
-      (__ \ implicitly[JsonConfiguration].naming("turns")).format[Map[Identifier[Player], Turn]] and
-      (__ \ implicitly[JsonConfiguration].naming("status")).format[Status]
+    field[Identifier[DraftState]]("id") and
+      field[Seq[Player]]("players") and
+      field[Set[Zone]]("zones") and
+      field[Map[Identifier[Player], Turn]]("turns") and
+      field[Status]("status")
   )(DraftState.apply, unlift(DraftState.unapply))
 
 }

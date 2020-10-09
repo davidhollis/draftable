@@ -123,15 +123,14 @@ object Zone {
   }
 
   implicit val format: Format[Zone] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Zone]] and
-      (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
-      (__ \ implicitly[JsonConfiguration].naming("owner")).formatNullable[Identifier[Player]] and
-      (__ \ implicitly[JsonConfiguration].naming("sets")).format[Seq[CardSet]] and
-      (__ \ implicitly[JsonConfiguration].naming("canSelect")).format[Target] and
-      (__ \ implicitly[JsonConfiguration].naming("canDrop")).format[Target] and
-      (__ \ implicitly[JsonConfiguration].naming("visible"))
-        .format[Map[Identifier[Player], Visibility]] and
-      (__ \ implicitly[JsonConfiguration].naming("defaultView")).format[ViewType]
+    field[Identifier[Zone]]("id") and
+      field[String]("name") and
+      optionalField[Identifier[Player]]("owner") and
+      field[Seq[CardSet]]("sets") and
+      field[Target]("canSelect") and
+      field[Target]("canDrop") and
+      field[Map[Identifier[Player], Visibility]]("visible") and
+      field[ViewType]("defaultView")
   )(Zone.apply, unlift(Zone.unapply))
 
 }

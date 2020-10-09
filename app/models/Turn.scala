@@ -17,10 +17,10 @@ object Turn {
   implicit val idPrefix: IdPrefix[Turn] = IdPrefix[Turn]("turn")
 
   implicit val format: Format[Turn] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Turn]] and
-      (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
-      (__ \ implicitly[JsonConfiguration].naming("expires")).formatNullable[ZonedDateTime] and
-      (__ \ implicitly[JsonConfiguration].naming("metadata")).format[Map[String, String]]
+    field[Identifier[Turn]]("id") and
+      field[String]("name") and
+      optionalField[ZonedDateTime]("expires") and
+      field[Map[String, String]]("metadata")
   )(Turn.apply, unlift(Turn.unapply))
 
 }

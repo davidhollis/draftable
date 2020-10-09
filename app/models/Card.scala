@@ -13,9 +13,9 @@ object Card {
   implicit val idPrefix: IdPrefix[Card] = IdPrefix[Card]("card")
 
   implicit val format: Format[Card] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Card]] and
-      (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
-      (__ \ implicitly[JsonConfiguration].naming("colorProfile")).format[ColorProfile]
+    field[Identifier[Card]]("id") and
+      field[String]("name") and
+      field[ColorProfile]("colorProfile")
   )(Card.apply, unlift(Card.unapply))
 
 }

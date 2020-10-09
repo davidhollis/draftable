@@ -14,8 +14,8 @@ object Player {
   implicit val idPrefix: IdPrefix[Player] = IdPrefix[Player]("player")
 
   implicit val format: Format[Player] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Player]] and
-      (__ \ implicitly[JsonConfiguration].naming("name")).formatNullable[String]
+    field[Identifier[Player]]("id") and
+      optionalField[String]("name")
   )(Player.apply, unlift(Player.unapply))
 
   case object System extends Identifiable[Player] {

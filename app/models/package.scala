@@ -16,7 +16,16 @@ package object models {
     fieldPath(name).write[T]
 
   @inline
-  def field[T: Format](name: String)(implicit jsonConfig: JsonConfiguration): Format[T] =
+  def field[T: Format](name: String)(implicit jsonConfig: JsonConfiguration): OFormat[T] =
     fieldPath(name).format[T]
+
+  @inline
+  def optionalField[T: Format](
+    name: String
+  )(
+    implicit
+    jsonConfig: JsonConfiguration
+  ): OFormat[Option[T]] =
+    fieldPath(name).formatNullable[T]
 
 }

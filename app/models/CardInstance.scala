@@ -18,9 +18,9 @@ object CardInstance {
   implicit val idPrefix: IdPrefix[CardInstance] = IdPrefix[CardInstance]("card-instance")
 
   implicit val format: Format[CardInstance] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[CardInstance]] and
-      (__ \ implicitly[JsonConfiguration].naming("card")).format[Card] and
-      (__ \ implicitly[JsonConfiguration].naming("attributes")).format[Set[String]]
+    field[Identifier[CardInstance]]("id") and
+      field[Card]("card") and
+      field[Set[String]]("attributes")
   )(CardInstance.apply, unlift(CardInstance.unapply))
 
 }

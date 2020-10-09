@@ -79,10 +79,10 @@ object CardSet {
   }
 
   implicit val format: Format[CardSet] = (
-    (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[CardSet]] and
-      (__ \ implicitly[JsonConfiguration].naming("setType")).format[CardSet.Type] and
-      (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
-      (__ \ implicitly[JsonConfiguration].naming("cards")).format[Seq[CardInstance]]
+    field[Identifier[CardSet]]("id") and
+      field[CardSet.Type]("setType") and
+      field[String]("name") and
+      field[Seq[CardInstance]]("cards")
   )(CardSet.apply, unlift(CardSet.unapply))
 
 }
