@@ -57,9 +57,9 @@ case class CardSet(
 object CardSet {
   implicit val idPrefix: IdPrefix[CardSet] = IdPrefix[CardSet]("card-set")
 
-  sealed abstract class Type(override val toString: String)
+  sealed abstract class Type(val name: String) extends Enum
 
-  object Type {
+  object Type extends EnumOps[Type]("card set type") {
     object BoosterPack extends Type("booster pack")
     object Stack extends Type("stack")
     object Deck extends Type("deck")
@@ -68,14 +68,7 @@ object CardSet {
 
     val all: Set[Type] = Set(BoosterPack, Stack, Deck, Sideboard, Other)
 
-    lazy val byName: Map[String, Type] = all.map(tpe => (tpe.toString -> tpe)).toMap
-
-    implicit val reads: Reads[Type] = Reads {
-      case JsString(typeName) => JsSuccess(Type.byName.getOrElse(typeName, Other))
-      case _                  => JsSuccess(Other)
-    }
-
-    implicit val writes: Writes[Type] = Writes { tpe => JsString(tpe.toString) }
+    override val defaultValue = Some(Other)
   }
 
   implicit val format: Format[CardSet] = (

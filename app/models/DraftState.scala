@@ -141,30 +141,15 @@ case class DraftState(
 object DraftState {
   implicit val idPrefix: IdPrefix[DraftState] = IdPrefix[DraftState]("draft")
 
-  sealed abstract class Status(override val toString: String)
+  sealed abstract class Status(val name: String) extends Enum
 
-  object Status {
+  object Status extends EnumOps[Status]("draft status") {
     object WaitingForPlayers extends Status("waiting for players")
     object BuildingCardPool extends Status("building card pool")
     object InProgress extends Status("in progress")
     object Finalized extends Status("finalized")
 
     val all: Set[Status] = Set(WaitingForPlayers, BuildingCardPool, InProgress, Finalized)
-
-    lazy val byName: Map[String, Status] = all.map(status => (status.toString -> status)).toMap
-
-    implicit val reads: Reads[Status] = Reads {
-      case JsString(statusString) =>
-        Status.byName.get(statusString) match {
-          case Some(status) => JsSuccess(status)
-          case None =>
-            JsError(s"Invalid status '${statusString}'. Status must be one of ${Status.all}")
-        }
-      case _ => JsError("Malformed status. Status must be a string.")
-    }
-
-    implicit val writes: Writes[Status] = Writes { status => JsString(status.toString) }
-
   }
 
   implicit val readsTurnMap: Reads[Map[Identifier[Player], Turn]] = Reads {

@@ -53,16 +53,14 @@ case class Zone(
 object Zone {
   implicit val idPrefix: IdPrefix[Zone] = IdPrefix[Zone]("zone")
 
-  sealed abstract class Visibility(val name: String, override val toString: String)
+  sealed abstract class Visibility(val name: String, override val toString: String) extends Enum
 
-  object Visibility {
+  object Visibility extends EnumOps[Visibility]("zone visibility") {
     object Sets extends Visibility("sets", "sets only")
     object TopCard extends Visibility("top-card", "sets and the top card of each set")
     object Cards extends Visibility("cards", "sets and cards")
 
     val all: Set[Visibility] = Set(Sets, TopCard, Cards)
-
-    lazy val byName: Map[String, Visibility] = all.map(vis => (vis.name -> vis)).toMap
   }
 
   implicit val readsVisibilityMap: Reads[Map[Identifier[Player], Visibility]] = Reads {
@@ -83,43 +81,29 @@ object Zone {
     })
   }
 
-  sealed abstract class Target(override val toString: String)
+  sealed abstract class Target(val name: String) extends Enum
 
-  object Target {
+  object Target extends EnumOps[Target]("zone selection target") {
     object NoTarget extends Target("nothing")
     object Sets extends Target("sets only")
     object Cards extends Target("cards only")
 
     val all: Set[Target] = Set(NoTarget, Sets, Cards)
 
-    lazy val byName: Map[String, Target] = all.map(tgt => (tgt.toString -> tgt)).toMap
-
-    implicit val reads: Reads[Target] = Reads {
-      case JsString(targetString) => JsSuccess(Target.byName.getOrElse(targetString, NoTarget))
-      case _                      => JsSuccess(NoTarget)
-    }
-
-    implicit val writes: Writes[Target] = Writes { tgt => JsString(tgt.toString) }
+    override val defaultValue = Some(NoTarget)
 
   }
 
-  sealed abstract class ViewType(override val toString: String)
+  sealed abstract class ViewType(val name: String) extends Enum
 
-  object ViewType {
+  object ViewType extends EnumOps[ViewType]("zone view type") {
     object Spread extends ViewType("spread")
     object Stacked extends ViewType("stacked")
     object Columns extends ViewType("columns")
 
     val all: Set[ViewType] = Set(Spread, Stacked, Columns)
 
-    lazy val byName: Map[String, ViewType] = all.map(vt => (vt.toString -> vt)).toMap
-
-    implicit val reads: Reads[ViewType] = Reads {
-      case JsString(viewTypeString) => JsSuccess(ViewType.byName.getOrElse(viewTypeString, Spread))
-      case _                        => JsSuccess(Spread)
-    }
-
-    implicit val writes: Writes[ViewType] = Writes { vt => JsString(vt.toString) }
+    override val defaultValue = Some(Spread)
   }
 
   implicit val format: Format[Zone] = (
