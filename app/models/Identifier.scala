@@ -15,6 +15,8 @@ abstract class IdPrefix[T] {
 
 object IdPrefix {
   def apply[T](prefix: String): IdPrefix[T] = new IdPrefix[T] { val prefixString: String = prefix }
+
+  def of[T: IdPrefix]: IdPrefix[T] = implicitly[IdPrefix[T]]
 }
 
 trait Identifiable[T] {
@@ -41,12 +43,12 @@ class Identifier[T] private[Identifier] (
 
 object Identifier {
   val idRegex: Regex = """drn:(.+):([0-9a-f-]+)""".r.anchored
-  def apply[T]()(implicit prefix: IdPrefix[T]): Identifier[T] = new Identifier[T](UUID.randomUUID())
+  def apply[T: IdPrefix](): Identifier[T] = new Identifier[T](UUID.randomUUID())
 
-  def applyOpt[T](idString: String)(implicit prefix: IdPrefix[T]): Option[Identifier[T]] =
+  def applyOpt[T: IdPrefix](idString: String): Option[Identifier[T]] =
     for {
       List(prefixString, uuidString) <- idRegex.unapplySeq(idString)
-      if prefixString == prefix.toString()
+      if prefixString == IdPrefix.of[T].toString()
       uuid <- Try(UUID.fromString(uuidString)).toOption
     } yield new Identifier[T](uuid)
 
