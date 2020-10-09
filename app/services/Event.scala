@@ -241,6 +241,14 @@ object SetDragged extends EventType("set dragged") {
 
 }
 
+case object Tick extends EventType("tick") with Event {
+  implicit val reads: Reads[Tick.type] = verifyTag.andKeep(Reads.pure(Tick))
+
+  implicit val writes: Writes[Tick.type] =
+    OWrites[Tick.type] { _ => JsObject.empty }.transform(applyTag)
+
+}
+
 object Event {
 
   implicit val reads: Reads[Event] =
@@ -255,6 +263,7 @@ object Event {
       SetSelected.reads.widen[Event],
       SetActioned.reads.widen[Event],
       SetDragged.reads.widen[Event],
+      Tick.reads.widen[Event],
     ).foldRight[Reads[Event]](Reads.failed[Event]("No matching event type found"))(_ orElse _)
 
   implicit val writes: Writes[Event] = Writes {
@@ -268,6 +277,7 @@ object Event {
     case ss: SetSelected        => SetSelected.writes.writes(ss)
     case sa: SetActioned        => SetActioned.writes.writes(sa)
     case sd: SetDragged         => SetDragged.writes.writes(sd)
+    case Tick                   => Tick.writes.writes(Tick)
   }
 
 }
