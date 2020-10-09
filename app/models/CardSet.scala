@@ -68,7 +68,7 @@ object CardSet {
 
     val all: Set[Type] = Set(BoosterPack, Stack, Deck, Sideboard, Other)
 
-    override val defaultValue = Some(Other)
+    override val defaultValue: Option[Type] = Some(Other)
   }
 
   implicit val format: Format[CardSet] = (

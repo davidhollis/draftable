@@ -90,7 +90,7 @@ object Zone {
 
     val all: Set[Target] = Set(NoTarget, Sets, Cards)
 
-    override val defaultValue = Some(NoTarget)
+    override val defaultValue: Option[Target] = Some(NoTarget)
 
   }
 
@@ -103,7 +103,7 @@ object Zone {
 
     val all: Set[ViewType] = Set(Spread, Stacked, Columns)
 
-    override val defaultValue = Some(Spread)
+    override val defaultValue: Option[ViewType] = Some(Spread)
   }
 
   implicit val format: Format[Zone] = (

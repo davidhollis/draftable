@@ -12,7 +12,7 @@ trait DraftRules {
 
 object DraftRules {
 
-  implicit class NotifyPlayer(val player: Identifier[Player]) extends AnyVal {
+  implicit class NotifyPlayer(private val player: Identifier[Player]) extends AnyVal {
     def ~>(message: Message): Notification = Notification(player, message)
 
     def ~>(draft: DraftState): Notification =
