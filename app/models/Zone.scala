@@ -11,6 +11,7 @@ case class Zone(
   canSelect: Zone.Target,
   canDrop: Zone.Target,
   visible: Map[Identifier[Player], Zone.Visibility] = Map.empty,
+  defaultView: Zone.ViewType = Zone.ViewType.Spread,
 ) extends Identifiable[Zone] {
   def isOwnedBy(player: Identifiable[Player]): Boolean = owner.map(_ == player.id).getOrElse(false)
 
@@ -102,6 +103,25 @@ object Zone {
 
   }
 
+  sealed abstract class ViewType(override val toString: String)
+
+  object ViewType {
+    object Spread extends ViewType("spread")
+    object Stacked extends ViewType("stacked")
+    object Columns extends ViewType("columns")
+
+    val all: Set[ViewType] = Set(Spread, Stacked, Columns)
+
+    lazy val byName: Map[String, ViewType] = all.map(vt => (vt.toString -> vt)).toMap
+
+    implicit val reads: Reads[ViewType] = Reads {
+      case JsString(viewTypeString) => JsSuccess(ViewType.byName.getOrElse(viewTypeString, Spread))
+      case _                        => JsSuccess(Spread)
+    }
+
+    implicit val writes: Writes[ViewType] = Writes { vt => JsString(vt.toString) }
+  }
+
   implicit val format: Format[Zone] = (
     (__ \ implicitly[JsonConfiguration].naming("id")).format[Identifier[Zone]] and
       (__ \ implicitly[JsonConfiguration].naming("name")).format[String] and
@@ -110,7 +130,8 @@ object Zone {
       (__ \ implicitly[JsonConfiguration].naming("canSelect")).format[Target] and
       (__ \ implicitly[JsonConfiguration].naming("canDrop")).format[Target] and
       (__ \ implicitly[JsonConfiguration].naming("visible"))
-        .format[Map[Identifier[Player], Visibility]]
+        .format[Map[Identifier[Player], Visibility]] and
+      (__ \ implicitly[JsonConfiguration].naming("defaultView")).format[ViewType]
   )(Zone.apply, unlift(Zone.unapply))
 
 }
