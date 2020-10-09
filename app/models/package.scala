@@ -1,6 +1,22 @@
-import play.api.libs.json.JsonConfiguration
-import play.api.libs.json.JsonNaming.SnakeCase
+import play.api.libs.json._
 
 package object models {
-  implicit val jsonConfig: JsonConfiguration = JsonConfiguration(SnakeCase)
+  implicit val jsonConfig: JsonConfiguration = JsonConfiguration(JsonNaming.SnakeCase)
+
+  @inline
+  def fieldPath(name: String)(implicit jsonConfig: JsonConfiguration): JsPath =
+    (__ \ jsonConfig.naming(name))
+
+  @inline
+  def readField[T: Reads](name: String)(implicit jsonConfig: JsonConfiguration): Reads[T] =
+    fieldPath(name).read[T]
+
+  @inline
+  def writeField[T: Writes](name: String)(implicit jsonConfig: JsonConfiguration): OWrites[T] =
+    fieldPath(name).write[T]
+
+  @inline
+  def field[T: Format](name: String)(implicit jsonConfig: JsonConfiguration): Format[T] =
+    fieldPath(name).format[T]
+
 }
