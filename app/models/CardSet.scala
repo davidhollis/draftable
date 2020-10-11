@@ -45,6 +45,9 @@ case class CardSet(
         card
     })
 
+  def modifyAllCards(op: CardInstance => CardInstance): CardSet =
+    copy(cards = cards.map(op))
+
   def filteredView(visibility: Zone.Visibility): CardSet =
     visibility match {
       case Sets    => copy(cards = Seq.empty)

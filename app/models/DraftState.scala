@@ -12,6 +12,28 @@ case class DraftState(
   turns: Map[Identifier[Player], Turn],
   status: DraftState.Status,
 ) extends Identifiable[DraftState] {
+
+  def requireStatus(requiredStatus: DraftState.Status): Option[DraftState] =
+    if (status == requiredStatus)
+      Some(this)
+    else
+      None
+
+  def updateStatus(newStatus: DraftState.Status): DraftState = copy(status = newStatus)
+
+  def player(player: Identifiable[Player]): Option[Player] = players.find(_.id == player.id)
+
+  def addPlayer(player: Player): DraftState = copy(players = players :+ player)
+
+  def modifyPlayer(selectedPlayer: Identifiable[Player])(op: Player => Player): DraftState =
+    copy(players = players.map { player =>
+      if (player.id == selectedPlayer.id) {
+        op(player)
+      } else {
+        player
+      }
+    })
+
   def zone(zone: Identifiable[Zone]): Option[Zone] = zones.find(_.id == zone.id)
 
   def zone(owner: Identifiable[Player], name: String): Option[Zone] =
@@ -117,7 +139,7 @@ case class DraftState(
       currentTurn <- turns.get(player.id)
     } yield copy(turns = turns + (player.id -> currentTurn.withoutExpiration))
 
-  def clearTurns(): DraftState = copy(turns = Map.empty)
+  def clearTurns(): Option[DraftState] = Some(copy(turns = Map.empty))
 
   def nextTurn(
     player: Identifiable[Player],

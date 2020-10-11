@@ -7,7 +7,7 @@ case class Player(
   id: Identifier[Player],
   name: Option[String],
 ) extends Identifiable[Player] {
-  def rename(newName: String): Player = copy(name = name orElse Some(newName))
+  def rename(newName: String): Player = copy(name = Some(newName))
 }
 
 object Player {

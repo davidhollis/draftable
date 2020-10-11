@@ -5,7 +5,15 @@ import play.api.libs.functional.syntax._
 
 import models._
 
-trait Message
+trait Message {
+
+  def |->(player: Identifiable[Player]): Seq[Notification] =
+    Seq(Notification(player.id, this))
+
+  def |->(players: Seq[Identifiable[Player]]): Seq[Notification] =
+    players.map { player => Notification(player.id, this) }
+
+}
 
 sealed abstract class MessageType(val tag: String) {
   def verifyTag: Reads[String] = readField[String](MessageType.key).filter(_ == tag)
