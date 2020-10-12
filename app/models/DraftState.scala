@@ -11,7 +11,13 @@ case class DraftState(
   zones: Set[Zone],
   turns: Map[Identifier[Player], Turn],
   status: DraftState.Status,
+  properties: Map[String, String] = Map.empty,
 ) extends Identifiable[DraftState] {
+
+  def property(name: String): Option[String] = properties.get(name)
+
+  def setProperty(name: String, value: String): DraftState =
+    copy(properties = properties + (name -> value))
 
   def requireStatus(requiredStatus: DraftState.Status): Option[DraftState] =
     if (status == requiredStatus)
@@ -22,6 +28,16 @@ case class DraftState(
   def updateStatus(newStatus: DraftState.Status): DraftState = copy(status = newStatus)
 
   def player(player: Identifiable[Player]): Option[Player] = players.find(_.id == player.id)
+
+  def nextPlayer(from: Identifiable[Player], direction: Int = 1): Option[Player] =
+    for {
+      playerIndex <- {
+        val idx = players.indexWhere(_.id == from.id)
+        if (idx >= 0) Some(idx) else None
+      }
+      nextPlayerIndex = (playerIndex + direction.sign) % players.size
+      nextPlayer <- players.lift(nextPlayerIndex)
+    } yield nextPlayer
 
   def addPlayer(player: Player): DraftState = copy(players = players :+ player)
 
@@ -34,14 +50,14 @@ case class DraftState(
       }
     })
 
+  def playerCount: Int = players.size
+
   def zone(zone: Identifiable[Zone]): Option[Zone] = zones.find(_.id == zone.id)
 
   def zone(owner: Identifiable[Player], name: String): Option[Zone] =
     zones.find(z => z.owner == Some(owner) && z.name == name)
 
   def zonesByName(name: String): Set[Zone] = zones.filter(_.name == name)
-
-  def playerCount: Int = players.size
 
   def modifyZone(selectedZone: Identifiable[Zone])(op: Zone => Zone): DraftState =
     copy(zones = zones.map { zone =>
@@ -50,6 +66,9 @@ case class DraftState(
       else
         zone
     })
+
+  def cardSet(at: (Identifiable[Zone], Identifiable[CardSet])): Option[CardSet] =
+    zone(at._1).flatMap(_.cardSet(at._2))
 
   def filteredViewFor(player: Identifiable[Player]): DraftState =
     copy(
@@ -201,7 +220,8 @@ object DraftState {
       field[Seq[Player]]("players") and
       field[Set[Zone]]("zones") and
       field[Map[Identifier[Player], Turn]]("turns") and
-      field[Status]("status")
+      field[Status]("status") and
+      field[Map[String, String]]("properties")
   )(DraftState.apply, unlift(DraftState.unapply))
 
 }

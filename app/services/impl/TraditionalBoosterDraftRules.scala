@@ -54,6 +54,7 @@ class TraditionalBoosterDraftRules @Inject() (
             } { (acc, zone) =>
               acc.modifyZone(zone)(_.enqueueSet(packBuilder.buildPack(1)))
             }
+            .setProperty("direction", "left")
             .updateStatus(DraftState.Status.InProgress)
             .notify(everyone)
         }
@@ -121,6 +122,7 @@ class TraditionalBoosterDraftRules @Inject() (
           fromSet <- fromZone.cardSet(fromSetId)
           toZone <- draft.zone(toZoneId)
           if toZone.owner == Some(player.id) && toZone.canDrop == Zone.Target.Cards
+          toSet <- toZone.cardSet(toSetId)
           result <- fromSet.setType match {
             case CardSet.Type.BoosterPack =>
               pickCardAndPassPack(
@@ -128,7 +130,7 @@ class TraditionalBoosterDraftRules @Inject() (
                 player = player,
                 card = card,
                 from = (fromZone -> fromSet),
-                to = Some(toZoneId -> toSetId),
+                to = Some(toZone -> toSet),
               )
             case CardSet.Type.Deck | CardSet.Type.Sideboard =>
               privatelyMoveCard(
@@ -141,8 +143,19 @@ class TraditionalBoosterDraftRules @Inject() (
             case _ => None
           }
         } yield result
-      case Tick => ???
-      case _    => None
+      case Tick =>
+        for {
+          _ <- draft.requireStatus(DraftState.Status.InProgress)
+          // Loop through expired player turns and force picks
+          // If all current and next zones are empty:
+          //   If there is a next round, copy its boosters into next zones
+          //   If there is no next found, finalize the draft
+          // Loop through players:
+          //   If that player has an empty current pack and there is a pack in their next zone:
+          //     Move the next set from their next pack zone
+          //     Set their next turn
+        } yield ???
+      case _ => None
     }
 
   private def buildPlayerZones(players: Seq[Identifiable[Player]]): Set[Zone] = {
@@ -231,7 +244,16 @@ class TraditionalBoosterDraftRules @Inject() (
     playerZone: Zone,
     fromSet: Identifiable[CardSet],
     toSetNamed: String,
-  ): Option[Update] = ???
+  ): Option[Update] =
+    for {
+      toSet <- playerZone.cardSet(toSetNamed)
+      moved <- draft.moveCard(
+        card = card,
+        player = player,
+        from = (playerZone -> fromSet),
+        to = (playerZone -> toSet),
+      )
+    } yield moved.notify(player)
 
   private def privatelyMoveCard(
     draft: DraftState,
@@ -239,14 +261,73 @@ class TraditionalBoosterDraftRules @Inject() (
     card: Identifiable[CardInstance],
     from: (Identifiable[Zone], Identifiable[CardSet]),
     to: (Identifiable[Zone], Identifiable[CardSet]),
-  ): Option[Update] = ???
+  ): Option[Update] =
+    for {
+      playerZone <- draft.zone(from._1)
+      // Verify that the card being is being moved between sets in the player's "Picks" zone
+      if playerZone.owner == Some(player.id) && playerZone.name == "Picks" && from._1.id == to._1.id
+      moved <- draft.moveCard(
+        card = card,
+        player = player,
+        from = from,
+        to = to,
+      )
+    } yield moved.notify(player)
 
   private def pickCardAndPassPack(
     draft: DraftState,
     player: Identifiable[Player],
     card: Identifiable[CardInstance],
     from: (Zone, CardSet),
-    to: Option[(Identifiable[Zone], Identifiable[CardSet])],
-  ): Option[Update] = ???
+    to: Option[(Zone, CardSet)],
+  ): Option[Update] =
+    for {
+      currentPackZone <- draft.zone(owner = player, name = "Current Pack")
+      (fromZone, fromSet) = from
+      if fromZone.id == currentPackZone.id // Ensure we're picking from the current pack
+      (toZone, toSet) <- to orElse (
+        for {
+          picks <- draft.zone(owner = player, name = "Picks")
+          deck <- picks.cardSet("Deck")
+        } yield (picks -> deck)
+      )
+      if toZone.name == "Picks" // Ensure we're moving the card into the player's picks
+      directionStr <- draft.property("direction")
+      nextPlayer <- draft.nextPlayer(
+        player,
+        direction = directionStr match {
+          case "left"  => 1
+          case "right" => -1
+          case _       => 0
+        },
+      )
+      nextPacksForNextPlayer <- draft.zone(owner = nextPlayer, name = "Next Packs")
+      // Move the chosen card from the current pack to the picks zone
+      pickMoved <- draft.moveCard(
+        card = card,
+        player = player,
+        from = from,
+        to = (toZone -> toSet),
+      )
+      // Pass the pack
+      updatedBooster <- pickMoved.cardSet(from)
+      packPassed <- {
+        if (updatedBooster.isEmpty)
+          pickMoved.removeSet(
+            set = updatedBooster,
+            player = Player.System,
+            from = fromZone,
+          )
+        else
+          pickMoved.moveSet(
+            set = updatedBooster,
+            player = Player.System,
+            from = fromZone,
+            to = toZone,
+          )
+      }
+      // Clear the timeout on the current player's turn
+      result <- packPassed.clearTurnTimeout(player)
+    } yield result.notify(everyone)
 
 }
