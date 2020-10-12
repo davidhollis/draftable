@@ -1,15 +1,19 @@
 package services.impl
 
 import com.google.inject.Inject
+import java.time.{ Clock, ZonedDateTime }
 
 import models._
 import services._
+import scala.util.Random
 
 class TraditionalBoosterDraftRules @Inject() (
   packBuilder: PackBuilder,
   pickTimings: PickTimings,
+  clock: Clock,
 ) extends DraftRules {
   import DraftRules._
+  import TraditionalBoosterDraftRules._
 
   val maximumPlayerCount: Int = 8
 
@@ -41,12 +45,12 @@ class TraditionalBoosterDraftRules @Inject() (
         for {
           waiting <- draft.requireStatus(DraftState.Status.WaitingForPlayers)
           withZones = waiting.copy(zones = buildPlayerZones(waiting.players))
-          pack2Zone <- withZones.zonesByName("Round 2 Boosters").headOption
-          pack3Zone <- withZones.zonesByName("Round 3 Boosters").headOption
+          pack2Zone <- withZones.zonesByName(r2BoosterZoneName).headOption
+          pack3Zone <- withZones.zonesByName(r3BoosterZoneName).headOption
         } yield {
           val playerCount = withZones.players.size
           withZones
-            .zonesByName("Next Packs")
+            .zonesByName(nextPacksZoneName)
             .foldLeft[DraftState] {
               withZones
                 .modifyZone(pack2Zone)(_.copy(sets = Seq.fill(playerCount)(packBuilder.buildPack(2))))
@@ -64,7 +68,7 @@ class TraditionalBoosterDraftRules @Inject() (
           _ <- draft.requireStatus(DraftState.Status.InProgress)
           // Ensure that we only mark cards the player had permission to mark
           //  (only cards in their current pack)
-          currentPackZone <- draft.zone(player, "Current Pack")
+          currentPackZone <- draft.zone(player, currentPackZoneName)
           if currentPackZone.id == zone
           currentPackSet <- currentPackZone.nextSet
           if currentPackSet.id == set
@@ -75,7 +79,7 @@ class TraditionalBoosterDraftRules @Inject() (
               _.modifySet(set)(currentBooster =>
                 currentBooster
                   .modifyAllCards(_.clearAttributes())
-                  .modifyCard(card)(_.addAttributes(Set("reserved")))
+                  .modifyCard(card)(_.addAttributes(Set(reservedAttribute)))
               )
             )
             .notify(player)
@@ -93,7 +97,7 @@ class TraditionalBoosterDraftRules @Inject() (
                 card = card,
                 from = (zone -> set),
                 to = None,
-              )
+              ).map(_.notify(everyone))
             case CardSet.Type.Deck =>
               privatelyMoveCard(
                 draft = draft,
@@ -101,8 +105,8 @@ class TraditionalBoosterDraftRules @Inject() (
                 card = card,
                 playerZone = zone,
                 fromSet = setId,
-                toSetNamed = "Sideboard",
-              )
+                toSetNamed = sideboardSetName,
+              ).map(_.notify(player))
             case CardSet.Type.Sideboard =>
               privatelyMoveCard(
                 draft = draft,
@@ -110,8 +114,8 @@ class TraditionalBoosterDraftRules @Inject() (
                 card = card,
                 playerZone = zone,
                 fromSet = setId,
-                toSetNamed = "Deck",
-              )
+                toSetNamed = deckSetName,
+              ).map(_.notify(player))
             case _ => None
           }
         } yield result
@@ -131,7 +135,7 @@ class TraditionalBoosterDraftRules @Inject() (
                 card = card,
                 from = (fromZone -> fromSet),
                 to = Some(toZone -> toSet),
-              )
+              ).map(_.notify(everyone))
             case CardSet.Type.Deck | CardSet.Type.Sideboard =>
               privatelyMoveCard(
                 draft = draft,
@@ -139,7 +143,7 @@ class TraditionalBoosterDraftRules @Inject() (
                 card = card,
                 from = (fromZoneId -> fromSetId),
                 to = (toZoneId -> toSetId),
-              )
+              ).map(_.notify(player))
             case _ => None
           }
         } yield result
@@ -147,6 +151,12 @@ class TraditionalBoosterDraftRules @Inject() (
         for {
           _ <- draft.requireStatus(DraftState.Status.InProgress)
           // Loop through expired player turns and force picks
+          withForcedPicks = {
+            draft.turns
+              .filter(_._2.isExpired(ZonedDateTime.now(clock)))
+              .keys
+              .foldLeft[DraftState](draft)(forcePick)
+          }
           // If all current and next zones are empty:
           //   If there is a next round, copy its boosters into next zones
           //   If there is no next found, finalize the draft
@@ -154,7 +164,7 @@ class TraditionalBoosterDraftRules @Inject() (
           //   If that player has an empty current pack and there is a pack in their next zone:
           //     Move the next set from their next pack zone
           //     Set their next turn
-        } yield ???
+        } yield withForcedPicks.notify(everyone)
       case _ => None
     }
 
@@ -163,7 +173,7 @@ class TraditionalBoosterDraftRules @Inject() (
       Seq(
         Zone(
           id = Identifier[Zone](),
-          name = "Next Packs",
+          name = nextPacksZoneName,
           owner = Some(player.id),
           sets = Seq.empty[CardSet],
           canSelect = Zone.Target.NoTarget,
@@ -173,7 +183,7 @@ class TraditionalBoosterDraftRules @Inject() (
         ),
         Zone(
           id = Identifier[Zone](),
-          name = "Current Pack",
+          name = currentPackZoneName,
           owner = Some(player.id),
           sets = Seq.empty[CardSet],
           canSelect = Zone.Target.Cards,
@@ -188,19 +198,19 @@ class TraditionalBoosterDraftRules @Inject() (
         ),
         Zone(
           id = Identifier[Zone](),
-          name = "Picks",
+          name = picksZoneName,
           owner = Some(player.id),
           sets = Seq(
             CardSet(
               id = Identifier[CardSet](),
               setType = CardSet.Type.Deck,
-              name = "Deck",
+              name = deckSetName,
               cards = Seq.empty[CardInstance],
             ),
             CardSet(
               id = Identifier[CardSet](),
               setType = CardSet.Type.Sideboard,
-              name = "Sideboard",
+              name = sideboardSetName,
               cards = Seq.empty[CardInstance],
             ),
           ),
@@ -214,7 +224,7 @@ class TraditionalBoosterDraftRules @Inject() (
     val sharedZones = Set(
       Zone(
         id = Identifier[Zone](),
-        name = "Round 2 Boosters",
+        name = r2BoosterZoneName,
         owner = None,
         sets = Seq.empty[CardSet],
         canSelect = Zone.Target.NoTarget,
@@ -224,7 +234,7 @@ class TraditionalBoosterDraftRules @Inject() (
       ),
       Zone(
         id = Identifier[Zone](),
-        name = "Round 3 Boosters",
+        name = r3BoosterZoneName,
         owner = None,
         sets = Seq.empty[CardSet],
         canSelect = Zone.Target.NoTarget,
@@ -244,7 +254,7 @@ class TraditionalBoosterDraftRules @Inject() (
     playerZone: Zone,
     fromSet: Identifiable[CardSet],
     toSetNamed: String,
-  ): Option[Update] =
+  ): Option[DraftState] =
     for {
       toSet <- playerZone.cardSet(toSetNamed)
       moved <- draft.moveCard(
@@ -253,7 +263,7 @@ class TraditionalBoosterDraftRules @Inject() (
         from = (playerZone -> fromSet),
         to = (playerZone -> toSet),
       )
-    } yield moved.notify(player)
+    } yield moved
 
   private def privatelyMoveCard(
     draft: DraftState,
@@ -261,18 +271,20 @@ class TraditionalBoosterDraftRules @Inject() (
     card: Identifiable[CardInstance],
     from: (Identifiable[Zone], Identifiable[CardSet]),
     to: (Identifiable[Zone], Identifiable[CardSet]),
-  ): Option[Update] =
+  ): Option[DraftState] =
     for {
       playerZone <- draft.zone(from._1)
-      // Verify that the card being is being moved between sets in the player's "Picks" zone
-      if playerZone.owner == Some(player.id) && playerZone.name == "Picks" && from._1.id == to._1.id
+      // Verify that the card being is being moved between sets in the player's picksZoneName zone
+      if playerZone.owner == Some(
+        player.id
+      ) && playerZone.name == picksZoneName && from._1.id == to._1.id
       moved <- draft.moveCard(
         card = card,
         player = player,
         from = from,
         to = to,
       )
-    } yield moved.notify(player)
+    } yield moved
 
   private def pickCardAndPassPack(
     draft: DraftState,
@@ -280,18 +292,18 @@ class TraditionalBoosterDraftRules @Inject() (
     card: Identifiable[CardInstance],
     from: (Zone, CardSet),
     to: Option[(Zone, CardSet)],
-  ): Option[Update] =
+  ): Option[DraftState] =
     for {
-      currentPackZone <- draft.zone(owner = player, name = "Current Pack")
+      currentPackZone <- draft.zone(owner = player, name = currentPackZoneName)
       (fromZone, fromSet) = from
       if fromZone.id == currentPackZone.id // Ensure we're picking from the current pack
       (toZone, toSet) <- to orElse (
         for {
-          picks <- draft.zone(owner = player, name = "Picks")
-          deck <- picks.cardSet("Deck")
+          picks <- draft.zone(owner = player, name = picksZoneName)
+          deck <- picks.cardSet(deckSetName)
         } yield (picks -> deck)
       )
-      if toZone.name == "Picks" // Ensure we're moving the card into the player's picks
+      if toZone.name == picksZoneName // Ensure we're moving the card into the player's picks
       directionStr <- draft.property("direction")
       nextPlayer <- draft.nextPlayer(
         player,
@@ -301,7 +313,7 @@ class TraditionalBoosterDraftRules @Inject() (
           case _       => 0
         },
       )
-      nextPacksForNextPlayer <- draft.zone(owner = nextPlayer, name = "Next Packs")
+      nextPacksForNextPlayer <- draft.zone(owner = nextPlayer, name = nextPacksZoneName)
       // Move the chosen card from the current pack to the picks zone
       pickMoved <- draft.moveCard(
         card = card,
@@ -328,6 +340,51 @@ class TraditionalBoosterDraftRules @Inject() (
       }
       // Clear the timeout on the current player's turn
       result <- packPassed.clearTurnTimeout(player)
-    } yield result.notify(everyone)
+    } yield result
 
+  def forcePick(draft: DraftState, player: Identifiable[Player]): DraftState = {
+    val forcePick = for {
+      currentPackZone <- draft.zone(owner = player, name = currentPackZoneName)
+      if !currentPackZone.isEmpty
+      currentBooster <- currentPackZone.nextSet
+      pick <- {
+        // Get a reserved card, or pick randomly if there is no reserved card
+        currentBooster
+          .cardsByAttribute(reservedAttribute)
+          .headOption
+          .orElse {
+            val allCards = currentBooster.cards
+            if (allCards.isEmpty)
+              None
+            else
+              Some(allCards(Random.nextInt(allCards.length)))
+          }
+      }
+      picked <- pickCardAndPassPack(
+        draft = draft,
+        player = player,
+        card = pick,
+        from = (currentPackZone -> currentBooster),
+        to = None,
+      )
+    } yield picked
+
+    val forcePickIfAble = forcePick.getOrElse(draft)
+
+    forcePickIfAble
+      .clearTurnTimeout(player)
+      .getOrElse(forcePickIfAble)
+  }
+
+}
+
+object TraditionalBoosterDraftRules {
+  val r2BoosterZoneName: String = "Round 2 Boosters"
+  val r3BoosterZoneName: String = "Round 3 Boosters"
+  val currentPackZoneName: String = "Current Pack"
+  val nextPacksZoneName: String = "Next Packs"
+  val picksZoneName: String = "Picks"
+  val deckSetName: String = "Deck"
+  val sideboardSetName: String = "Sideboard"
+  val reservedAttribute: String = "reserved"
 }

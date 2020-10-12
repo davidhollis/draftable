@@ -1,9 +1,8 @@
 package models
 
-import java.time.Duration
+import java.time.{ Clock, Duration, ZonedDateTime }
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import java.time.ZonedDateTime
 
 case class DraftState(
   id: Identifier[DraftState],
@@ -162,7 +161,7 @@ case class DraftState(
 
   def nextTurn(
     player: Identifiable[Player],
-    timeout: Option[Duration],
+    timeout: Option[(Duration, Clock)],
     name: String,
     kvPairs: (String, String)*
   ): Option[DraftState] =
@@ -172,7 +171,7 @@ case class DraftState(
       turns = turns + (player.id -> Turn(
         Identifier[Turn](),
         name,
-        timeout.map(ZonedDateTime.now().plus(_)),
+        timeout.map { case (dur, clock) => ZonedDateTime.now(clock).plus(dur) },
         Map(kvPairs: _*),
       ))
     )
